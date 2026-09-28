@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'Karla', sans-serif;
+}
+
+/* Base Theme Variables */
+:root {
+  /* Default: Obsidian Luxe */
+  --app-bg: #09090b;
+  --app-surface: #111115;
+  --app-surface-secondary: #1a1a21;
+  --app-border: #24242d;
+  --app-border-hover: #3b3b48;
+  --app-text: #f4f4f6;
+  --app-text-muted: #848492;
+  --app-accent: #c5a258;
+  --app-button-bg: #f4f4f6;
+  --app-button-text: #09090b;
+}
+
+/* Theme 1: Maison Alabaster (Warm Showroom Editorial) */
+[data-theme="alabaster"] {
+  --app-bg: #f8f6f1;
+  --app-surface: #ffffff;
+  --app-surface-secondary: #f0ece3;
+  --app-border: #e3ded5;
+  --app-border-hover: #cfc8bd;
+  --app-text: #191817;
+  --app-text-muted: #7c766e;
+  --app-accent: #927552;
+  --app-button-bg: #191817;
+  --app-button-text: #f8f6f1;
+}
+
+/* Theme 2: Nordic Slate (Cool Midnight Minimal) */
+[data-theme="nordic"] {
+  --app-bg: #0d1117;
+  --app-surface: #161b22;
+  --app-surface-secondary: #21262d;
+  --app-border: #30363d;
+  --app-border-hover: #484f58;
+  --app-text: #f0f6fc;
+  --app-text-muted: #8b949e;
+  --app-accent: #79c0ff;
+  --app-button-bg: #f0f6fc;
+  --app-button-text: #0d1117;
+}
+
+/* Theme 3: Obsidian Noir (Carbon Monochrome) */
+[data-theme="obsidian"] {
+  --app-bg: #09090b;
+  --app-surface: #111115;
+  --app-surface-secondary: #1a1a21;
+  --app-border: #24242d;
+  --app-border-hover: #3b3b48;
+  --app-text: #f4f4f6;
+  --app-text-muted: #848492;
+  --app-accent: #c5a258;
+  --app-button-bg: #f4f4f6;
+  --app-button-text: #09090b;
+}
+
+/* Theme 4: Lively Sunset (Vibrant Gradient) */
+[data-theme="lively"] {
+  --app-bg: #1e1b4b;
+  --app-surface: #312e81;
+  --app-surface-secondary: #3730a3;
+  --app-border: #4338ca;
+  --app-border-hover: #4f46e5;
+  --app-text: #e0e7ff;
+  --app-text-muted: #a5b4fc;
+  --app-accent: #f43f5e;
+  --app-button-bg: #ec4899;
+  --app-button-text: #ffffff;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  html, body {
+    background-color: var(--app-bg);
+    color: var(--app-text);
+    font-family: var(--font-body);
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--app-border);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--app-text-muted);
+  }
+}
+
+.luxury-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.luxury-card:hover {
+  border-color: var(--app-border-hover);
+}
+
+.luxury-input {
+  background: transparent;
+  border: 1px solid var(--app-border);
+  border-radius: 6px;
+  color: var(--app-text);
+  transition: border-color 0.2s ease;
+}
+
+.luxury-input:focus {
+  outline: none;
+  border-color: var(--app-border-hover);
+}
+
+.luxury-button {
+  background: var(--app-button-bg);
+  color: var(--app-button-text);
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.luxury-button:hover {
+  opacity: 0.85;
+}
