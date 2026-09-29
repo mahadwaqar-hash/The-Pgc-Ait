@@ -8,6 +8,11 @@ export interface ChatMessage {
   durationMs: number;
   isBurnOnRead?: boolean;
   reactions: { [emoji: string]: string[] }; // array of usernames who reacted
+  replyTo?: {
+    id: string;
+    sender: string;
+    content: string;
+  };
 }
 
 export interface Confession {

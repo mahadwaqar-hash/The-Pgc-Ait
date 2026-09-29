@@ -1,6 +1,10 @@
-// @ts-ignore
-import mqtt from 'mqtt';
 import type { ChatMessage } from '../types';
+
+declare global {
+  interface Window {
+    mqtt: any;
+  }
+}
 
 export type NetworkEventType = { _eventId?: string } & (
   | { type: 'NEW_MESSAGE'; message: ChatMessage }
@@ -32,7 +36,7 @@ export const verifyAdmin = (username: string, pin: string) => {
 const TOPIC = 'pgc-ait-global-mesh-v5';
 
 class P2PNetwork {
-  private client: mqtt.MqttClient | null = null;
+  private client: any = null;
   private myPeerId: string = Math.random().toString(36).substring(2, 10);
   
   private onMessageCallbacks: ((msg: ChatMessage) => void)[] = [];
@@ -62,7 +66,7 @@ class P2PNetwork {
 
     try {
       // Connect to HiveMQ Public WebSocket Broker (100% reliable, bypasses NAT, no backend)
-      this.client = mqtt.connect('wss://broker.hivemq.com:8443/mqtt', {
+      this.client = window.mqtt.connect('wss://broker.hivemq.com:8443/mqtt', {
         clientId: `pgc-ait-${this.myPeerId}`,
         clean: true,
         reconnectPeriod: 1000,

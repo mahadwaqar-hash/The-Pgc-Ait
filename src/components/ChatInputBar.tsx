@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Flame, Clock, Smile } from 'lucide-react';
+import { Send, Flame, Clock, Smile, X, CornerUpLeft } from 'lucide-react';
+import type { ChatMessage } from '../types';
 
 interface ChatInputBarProps {
   onSendMessage: (content: string, isBurnOnRead: boolean) => void;
   activeRoom: string;
+  replyingTo?: ChatMessage | null;
+  onCancelReply?: () => void;
 }
 
 const QUICK_EMOJIS = ['🖤', '✨', '☕', '🔥', '💀', '🤫', '👀', '💯'];
 
-export default function ChatInputBar({ onSendMessage, activeRoom }: ChatInputBarProps) {
+export default function ChatInputBar({ onSendMessage, activeRoom, replyingTo, onCancelReply }: ChatInputBarProps) {
   const [text, setText] = useState('');
   const [isBurnOnRead, setIsBurnOnRead] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -39,7 +42,30 @@ export default function ChatInputBar({ onSendMessage, activeRoom }: ChatInputBar
   };
 
   return (
-    <div className="w-full relative">
+    <div className="w-full relative flex flex-col gap-2">
+      {/* Reply Preview */}
+      <AnimatePresence>
+        {replyingTo && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="flex items-center justify-between p-3 rounded-2xl bg-[var(--app-surface-secondary)] border border-[var(--app-border)] ml-4 mr-4"
+          >
+            <div className="flex items-center gap-3 overflow-hidden">
+              <CornerUpLeft className="w-4 h-4 text-[var(--app-accent)] flex-shrink-0" />
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-xs font-semibold text-[var(--app-text)]">Replying to {replyingTo.sender}</span>
+                <span className="text-xs text-[var(--app-text-muted)] truncate">{replyingTo.content}</span>
+              </div>
+            </div>
+            <button onClick={onCancelReply} className="p-1 rounded-full hover:bg-[var(--app-surface)] text-[var(--app-text-muted)] hover:text-rose-400 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Bubbly Emoji Picker Popup */}
       <AnimatePresence>
         {showEmojiPicker && (

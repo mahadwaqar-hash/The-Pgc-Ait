@@ -8,6 +8,7 @@ interface ChatMessageItemProps {
   isCurrentUser?: boolean;
   onVaporize: (id: string) => void;
   onReact: (id: string, emoji: string) => void;
+  onReply?: (id: string) => void;
   currentUsername?: string;
 }
 
@@ -16,6 +17,7 @@ export default function ChatMessageItem({
   isCurrentUser = false,
   onVaporize,
   onReact,
+  onReply,
   currentUsername,
 }: ChatMessageItemProps) {
   const [isRevealed, setIsRevealed] = useState(false);
@@ -79,6 +81,14 @@ export default function ChatMessageItem({
                 : 'rounded-3xl rounded-bl-sm bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text)] shadow-[0_2px_12px_-2px_rgba(0,0,0,0.08)]'
             }`}
           >
+            {/* Replied Message Preview */}
+            {message.replyTo && (
+              <div className={`mb-3 p-2 rounded-xl text-xs border opacity-80 ${isCurrentUser ? 'bg-[var(--app-surface)] border-[var(--app-border)]' : 'bg-[var(--app-surface-secondary)] border-[var(--app-border-hover)]'}`}>
+                <div className="font-semibold text-[var(--app-text)] mb-0.5">{message.replyTo.sender}</div>
+                <div className="text-[var(--app-text-muted)] truncate">{message.replyTo.content}</div>
+              </div>
+            )}
+
             {/* Message Text */}
             <div className="font-body text-sm md:text-base leading-relaxed break-words">
               {message.isBurnOnRead && !isRevealed ? (
@@ -99,14 +109,25 @@ export default function ChatMessageItem({
               )}
             </div>
 
-            {/* Quick Expire trigger on hover */}
-            <button
-              onClick={triggerVaporize}
-              className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 p-1 rounded-full bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:text-rose-400 hover:border-rose-900 cursor-pointer shadow-md"
-              title="Vaporize message"
-            >
-              <Flame className="w-3 h-3" />
-            </button>
+            {/* Hover Actions (Reply & Vaporize) */}
+            <div className={`absolute -top-3 ${isCurrentUser ? '-left-8' : '-right-8'} opacity-0 group-hover:opacity-100 transition-all flex flex-col gap-1`}>
+              <button
+                onClick={triggerVaporize}
+                className="scale-75 group-hover:scale-100 p-1.5 rounded-full bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:text-rose-400 hover:border-rose-900 cursor-pointer shadow-md"
+                title="Vaporize message"
+              >
+                <Flame className="w-3.5 h-3.5" />
+              </button>
+              {onReply && (
+                <button
+                  onClick={() => onReply(message.id)}
+                  className="scale-75 group-hover:scale-100 p-1.5 rounded-full bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:text-[var(--app-accent)] hover:border-[var(--app-accent)] cursor-pointer shadow-md"
+                  title="Reply to message"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Bubbly Emoji Reactions */}

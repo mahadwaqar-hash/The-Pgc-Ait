@@ -238,6 +238,8 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isAudioEnabled]);
 
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+
   const handleSendMessage = (content: string, isBurnOnRead: boolean) => {
     if (sessionStorage.getItem('is_muted') === 'true') {
       alert("You are muted and cannot send messages.");
@@ -255,10 +257,16 @@ export default function App() {
       durationMs: EIGHT_HOURS_MS,
       isBurnOnRead,
       reactions: {},
+      replyTo: replyingTo ? {
+        id: replyingTo.id,
+        sender: replyingTo.sender,
+        content: replyingTo.content,
+      } : undefined,
     };
 
     setMessages((prev) => [...prev, newMsg]);
     p2pNetwork.broadcastMessage(newMsg);
+    setReplyingTo(null);
   };
 
   const handleVaporize = (id: string) => {
@@ -318,7 +326,7 @@ export default function App() {
         setActiveTheme={setActiveTheme}
       />
 
-      <div className="min-h-screen flex flex-col relative z-10 px-4 md:px-10 py-6 max-w-[1550px] mx-auto transition-colors duration-300">
+      <div className="min-h-[100dvh] flex flex-col relative z-10 px-4 md:px-10 py-6 max-w-[1550px] mx-auto transition-colors duration-300">
         {/* Header */}
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--app-border)] pb-5 mb-6">
           <div className="flex items-baseline gap-4">
@@ -408,7 +416,7 @@ export default function App() {
         </header>
 
         {/* Main Work Area */}
-        <div className="flex flex-col lg:flex-row gap-8 flex-1 h-[calc(100vh-140px)] min-h-[580px]">
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 flex-1 h-[calc(100dvh-120px)] lg:h-[calc(100dvh-140px)] min-h-0">
           {/* Navigation Sidebar */}
           <aside className="lg:w-60 flex lg:flex-col gap-4 lg:gap-8 flex-shrink-0 overflow-x-auto no-scrollbar pb-2 lg:pb-0">
             {/* Main Tabs */}
@@ -511,14 +519,15 @@ export default function App() {
                   ) : (
                     <AnimatePresence>
                       {loungeMessages.map((msg) => (
-                        <ChatMessageItem
-                          key={msg.id}
-                          message={msg}
-                          isCurrentUser={msg.sender === userProfile.username}
-                          currentUsername={userProfile.username}
-                          onVaporize={handleVaporize}
-                          onReact={handleReact}
-                        />
+                          <ChatMessageItem
+                            key={msg.id}
+                            message={msg}
+                            isCurrentUser={msg.sender === userProfile.username}
+                            currentUsername={userProfile.username}
+                            onVaporize={handleVaporize}
+                            onReact={handleReact}
+                            onReply={(id) => setReplyingTo(messages.find(m => m.id === id) || null)}
+                          />
                       ))}
                     </AnimatePresence>
                   )}
@@ -530,6 +539,8 @@ export default function App() {
                   <ChatInputBar
                     activeRoom={'Lounge'}
                     onSendMessage={handleSendMessage}
+                    replyingTo={replyingTo}
+                    onCancelReply={() => setReplyingTo(null)}
                   />
                 </div>
               </div>
@@ -591,14 +602,15 @@ export default function App() {
                       ) : (
                         <AnimatePresence>
                           {groupMessages.map((msg) => (
-                            <ChatMessageItem
-                              key={msg.id}
-                              message={msg}
-                              isCurrentUser={msg.sender === userProfile.username}
-                              currentUsername={userProfile.username}
-                              onVaporize={handleVaporize}
-                              onReact={handleReact}
-                            />
+                          <ChatMessageItem
+                            key={msg.id}
+                            message={msg}
+                            isCurrentUser={msg.sender === userProfile.username}
+                            currentUsername={userProfile.username}
+                            onVaporize={handleVaporize}
+                            onReact={handleReact}
+                            onReply={(id) => setReplyingTo(messages.find(m => m.id === id) || null)}
+                          />
                           ))}
                         </AnimatePresence>
                       )}
@@ -610,6 +622,8 @@ export default function App() {
                       <ChatInputBar
                         activeRoom={activeGroup}
                         onSendMessage={handleSendMessage}
+                        replyingTo={replyingTo}
+                        onCancelReply={() => setReplyingTo(null)}
                       />
                     </div>
                   </>
