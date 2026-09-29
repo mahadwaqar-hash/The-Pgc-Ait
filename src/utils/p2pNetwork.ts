@@ -44,12 +44,10 @@ class P2PNetwork {
   private onConfessionVoteCallbacks: ((id: string, type: 'up' | 'down') => void)[] = [];
   
   private currentUsername: string = '';
-  private currentRoom: string = 'Lounge';
   private getLatestMessages: () => ChatMessage[] = () => [];
 
-  public init(username: string, room: string, getMessages: () => ChatMessage[]) {
+  public init(username: string, getMessages: () => ChatMessage[]) {
     this.currentUsername = username;
-    this.currentRoom = room;
     this.getLatestMessages = getMessages;
 
     if (this.peer) {
