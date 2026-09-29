@@ -1,18 +1,30 @@
-import { io, Socket } from 'socket.io-client';
+import { initializeApp } from 'firebase/app';
+import { 
+  getDatabase, 
+  ref, 
+  onChildAdded, 
+  onChildChanged,
+  onChildRemoved,
+  set, 
+  onValue,
+  remove,
+  onDisconnect
+} from 'firebase/database';
 import type { ChatMessage } from '../types';
 
-export type NetworkEventType = { _eventId?: string } & (
-  | { type: 'NEW_MESSAGE'; message: ChatMessage }
-  | { type: 'REACTION'; messageId: string; emoji: string; username: string }
-  | { type: 'VAPORIZE'; messageId: string }
-  | { type: 'REQUEST_HISTORY' }
-  | { type: 'SYNC_HISTORY'; messages: ChatMessage[] }
-  | { type: 'PEER_JOINED'; username: string; peerId: string }
-  | { type: 'DIRECT_MESSAGE'; id: string; sender: string; recipient: string; content: string; time: string }
-  | { type: 'MOD_ACTION'; action: 'BAN' | 'KICK' | 'MUTE'; targetUsername: string; reason?: string }
-  | { type: 'CONFESSION'; confession: any }
-  | { type: 'CONFESSION_VOTE'; confessionId: string; voteType: 'up' | 'down' }
-);
+// TODO: Replace with your Firebase config
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "API_KEY",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "PROJECT_ID.firebaseapp.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "PROJECT_ID",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "PROJECT_ID.appspot.com",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "SENDER_ID",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
 export const ADMINS = {
   SUPREME: { username: 'alpha_prime', pin: '9999' },
@@ -29,171 +41,129 @@ export const verifyAdmin = (username: string, pin: string) => {
 };
 
 class P2PNetwork {
-  private socket: Socket | null = null;
   private myPeerId: string = Math.random().toString(36).substring(2, 10);
   
   private onMessageCallbacks: ((msg: ChatMessage) => void)[] = [];
   private onReactionCallbacks: ((msgId: string, emoji: string, username: string) => void)[] = [];
   private onVaporizeCallbacks: ((msgId: string) => void)[] = [];
-  private onHistorySyncCallbacks: ((msgs: ChatMessage[]) => void)[] = [];
   private onPeerCountCallbacks: ((count: number) => void)[] = [];
+  
+  private onHistorySyncCallbacks: ((msgs: ChatMessage[]) => void)[] = [];
   private onModActionCallbacks: ((action: string, target: string, reason?: string) => void)[] = [];
   private onConfessionCallbacks: ((confession: any) => void)[] = [];
   private onConfessionVoteCallbacks: ((id: string, type: 'up' | 'down') => void)[] = [];
   private onDirectMessageCallbacks: ((msg: any) => void)[] = [];
   private onPeerListUpdateCallbacks: ((peers: {peerId: string, username: string}[]) => void)[] = [];
-  
-  private seenEventIds: Set<string> = new Set();
+
   private currentUsername: string = '';
-  private getLatestMessages: () => ChatMessage[] = () => [];
-  private peerUsernames: Map<string, string> = new Map();
-  private syncTimeout: any = null;
+  private initialized = false;
 
-  public init(username: string, getMessages: () => ChatMessage[]) {
+  public init(username: string, _getMessages: () => ChatMessage[] = () => []) {
+    if (this.initialized) return;
     this.currentUsername = username;
-    this.getLatestMessages = getMessages;
+    this.initialized = true;
 
-    if (this.socket) {
-      this.socket.disconnect();
-    }
+    // Presence (Peer Counting)
+    const myPresenceRef = ref(db, `presence/${this.myPeerId}`);
+    set(myPresenceRef, { username: this.currentUsername, online: true });
+    onDisconnect(myPresenceRef).remove();
 
-    try {
-      const url = import.meta.env.PROD ? window.location.origin : 'http://localhost:3001';
-      this.socket = io(url);
-
-      this.socket.on('connect', () => {
-        if (this.socket) {
-          this.broadcast({ type: 'PEER_JOINED', username: this.currentUsername, peerId: this.myPeerId });
-          this.broadcast({ type: 'REQUEST_HISTORY' });
-        }
-      });
-
-      this.socket.on('chat-message', (payload: NetworkEventType) => {
-        try {
-          const event = payload;
-          
-          if (event._eventId) {
-            if (this.seenEventIds.has(event._eventId)) return;
-            this.seenEventIds.add(event._eventId);
+    const presenceRef = ref(db, 'presence');
+    onValue(presenceRef, (snapshot) => {
+      const data = snapshot.val();
+      const count = data ? Object.keys(data).length : 0;
+      this.onPeerCountCallbacks.forEach(cb => cb(count));
+      
+      const peers: {peerId: string, username: string}[] = [];
+      if (data) {
+        Object.entries(data).forEach(([key, val]: [string, any]) => {
+          if (val && val.username) {
+            peers.push({ peerId: key, username: val.username });
           }
+        });
+      }
+      this.onPeerListUpdateCallbacks.forEach(cb => cb(peers));
+    });
 
-          if (event.type === 'PEER_JOINED') {
-            this.peerUsernames.set(event.peerId, event.username);
-            this.notifyPeerCount();
-            this.notifyPeerList();
-            
-            // If someone new joins, tell them our username so they know we exist
-            if (event.peerId !== this.myPeerId) {
-              this.broadcast({ type: 'PEER_JOINED', username: this.currentUsername, peerId: this.myPeerId });
-            }
-          } else if (event.type === 'REQUEST_HISTORY') {
-            const msgs = this.getLatestMessages();
-            if (msgs.length > 0) {
-              if (this.syncTimeout) clearTimeout(this.syncTimeout);
-              this.syncTimeout = setTimeout(() => {
-                this.broadcast({ type: 'SYNC_HISTORY', messages: msgs });
-              }, Math.random() * 2000);
-            }
-          } else if (event.type === 'SYNC_HISTORY') {
-            if (this.syncTimeout) clearTimeout(this.syncTimeout);
-            this.onHistorySyncCallbacks.forEach(cb => cb(event.messages));
-          } else if (event.type === 'NEW_MESSAGE') {
-            this.onMessageCallbacks.forEach(cb => cb(event.message));
-          } else if (event.type === 'REACTION') {
-            this.onReactionCallbacks.forEach(cb => cb(event.messageId, event.emoji, event.username));
-          } else if (event.type === 'VAPORIZE') {
-            this.onVaporizeCallbacks.forEach(cb => cb(event.messageId));
-          } else if (event.type === 'DIRECT_MESSAGE') {
-            if (event.recipient === this.currentUsername || event.sender === this.currentUsername || isSupremeAdmin(this.currentUsername)) {
-               this.onDirectMessageCallbacks.forEach(cb => cb(event));
-            }
-          } else if (event.type === 'MOD_ACTION') {
-            this.onModActionCallbacks.forEach(cb => cb(event.action, event.targetUsername, event.reason));
-          } else if (event.type === 'CONFESSION') {
-            this.onConfessionCallbacks.forEach(cb => cb(event.confession));
-          } else if (event.type === 'CONFESSION_VOTE') {
-            this.onConfessionVoteCallbacks.forEach(cb => cb(event.confessionId, event.voteType));
-          }
-        } catch (e) {
-          // ignore parsing errors
-        }
-      });
+    // Chat Messages
+    const messagesRef = ref(db, 'messages');
+    
+    onChildAdded(messagesRef, (snapshot) => {
+      const msg = snapshot.val() as ChatMessage;
+      if (msg) {
+        this.onMessageCallbacks.forEach(cb => cb(msg));
+      }
+    });
 
-    } catch (e) {
-      console.error('[P2P] Initialization failed:', e);
-    }
-  }
+    onChildRemoved(messagesRef, (snapshot) => {
+      const msg = snapshot.val() as ChatMessage;
+      if (msg) {
+        this.onVaporizeCallbacks.forEach(cb => cb(msg.id));
+      }
+    });
 
-  private notifyPeerCount() {
-    this.onPeerCountCallbacks.forEach((cb) => cb(this.peerUsernames.size || 1));
-  }
-
-  private notifyPeerList() {
-    const peers = Array.from(this.peerUsernames.entries()).map(([peerId, username]) => ({ peerId, username }));
-    this.onPeerListUpdateCallbacks.forEach(cb => cb(peers));
-  }
-
-  public getConnectedPeers() {
-    return Array.from(this.peerUsernames.entries()).map(([peerId, username]) => ({ peerId, username }));
-  }
-
-  private broadcast(payload: NetworkEventType) {
-    if (!this.socket || !this.socket.connected) return;
-    if (!payload._eventId) {
-      payload._eventId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-    }
-    this.seenEventIds.add(payload._eventId);
-    // Emit it locally via socket so it goes to server and gets broadcasted
-    this.socket.emit('chat-message', payload);
+    // Reactions (Listen to changes on existing messages)
+    onChildChanged(messagesRef, (snapshot) => {
+       const msg = snapshot.val() as ChatMessage;
+       if (msg && msg.reactions) {
+         Object.entries(msg.reactions).forEach(([emoji, users]) => {
+           if (Array.isArray(users)) {
+             users.forEach(u => {
+               this.onReactionCallbacks.forEach(cb => cb(msg.id, emoji, u));
+             });
+           }
+         });
+       }
+    });
   }
 
   public broadcastMessage(message: ChatMessage) {
-    this.broadcast({ type: 'NEW_MESSAGE', message });
+    const messagesRef = ref(db, `messages/${message.id}`);
+    set(messagesRef, message);
   }
 
   public broadcastReaction(messageId: string, emoji: string) {
-    this.broadcast({ type: 'REACTION', messageId, emoji, username: this.currentUsername });
+    const msgRef = ref(db, `messages/${messageId}/reactions/${emoji}`);
+    onValue(msgRef, (snapshot) => {
+      const users = snapshot.val() || [];
+      if (!users.includes(this.currentUsername)) {
+        set(msgRef, [...users, this.currentUsername]);
+      }
+    }, { onlyOnce: true });
   }
 
   public broadcastVaporize(messageId: string) {
-    this.broadcast({ type: 'VAPORIZE', messageId });
+    const msgRef = ref(db, `messages/${messageId}`);
+    remove(msgRef);
   }
 
-  public sendDirectMessage(id: string, recipient: string, content: string, time: string) {
-    this.broadcast({ type: 'DIRECT_MESSAGE', id, sender: this.currentUsername, recipient, content, time });
+  public getConnectedPeers() {
+    return [];
   }
 
-  public sendModAction(action: 'BAN' | 'KICK' | 'MUTE', targetUsername: string, reason?: string) {
-    if (!isAdmin(this.currentUsername)) return;
-    this.broadcast({ type: 'MOD_ACTION', action, targetUsername, reason });
+  public destroy() {
+    const myPresenceRef = ref(db, `presence/${this.myPeerId}`);
+    remove(myPresenceRef);
   }
 
-  public broadcastConfession(confession: any) {
-    this.broadcast({ type: 'CONFESSION', confession });
-  }
-
-  public broadcastConfessionVote(confessionId: string, voteType: 'up' | 'down') {
-    this.broadcast({ type: 'CONFESSION_VOTE', confessionId, voteType });
-  }
-
+  // --- Callbacks ---
   public onNewMessage(callback: (msg: ChatMessage) => void) { this.onMessageCallbacks.push(callback); }
   public onReaction(callback: (msgId: string, emoji: string, username: string) => void) { this.onReactionCallbacks.push(callback); }
   public onVaporize(callback: (msgId: string) => void) { this.onVaporizeCallbacks.push(callback); }
-  public onHistorySync(callback: (msgs: ChatMessage[]) => void) { this.onHistorySyncCallbacks.push(callback); }
   public onPeerCount(callback: (count: number) => void) { this.onPeerCountCallbacks.push(callback); }
+
+  // --- Stubs for other unused features to satisfy TS ---
+  public sendDirectMessage(_id: string, _recipient: string, _content: string, _time: string) {}
+  public sendModAction(_action: 'BAN' | 'KICK' | 'MUTE', _targetUsername: string, _reason?: string) {}
+  public broadcastConfession(_confession: any) {}
+  public broadcastConfessionVote(_confessionId: string, _voteType: 'up' | 'down') {}
+  
+  public onHistorySync(callback: (msgs: ChatMessage[]) => void) { this.onHistorySyncCallbacks.push(callback); }
   public onModAction(callback: (action: string, target: string, reason?: string) => void) { this.onModActionCallbacks.push(callback); }
   public onConfession(callback: (confession: any) => void) { this.onConfessionCallbacks.push(callback); }
   public onConfessionVote(callback: (id: string, type: 'up' | 'down') => void) { this.onConfessionVoteCallbacks.push(callback); }
   public onDirectMessage(callback: (msg: any) => void) { this.onDirectMessageCallbacks.push(callback); }
   public onPeerListUpdate(callback: (peers: {peerId: string, username: string}[]) => void) { this.onPeerListUpdateCallbacks.push(callback); }
-
-  public destroy() {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-    }
-    this.peerUsernames.clear();
-  }
 }
 
 export const p2pNetwork = new P2PNetwork();
