@@ -181,6 +181,23 @@ export default function App() {
           }
         }
       });
+
+      p2pNetwork.onConfession((confession) => {
+        setConfessions(prev => {
+          if (prev.some(c => c.id === confession.id)) return prev;
+          return [confession, ...prev];
+        });
+      });
+
+      p2pNetwork.onConfessionVote((id, type) => {
+        setConfessions(prev => 
+          prev.map(c => c.id === id ? {
+            ...c,
+            upvotes: type === 'up' ? c.upvotes + 1 : c.upvotes,
+            downvotes: type === 'down' ? c.downvotes + 1 : c.downvotes,
+          } : c).filter(c => c.downvotes < 5)
+        );
+      });
     }
 
     return () => {
@@ -562,7 +579,7 @@ export default function App() {
             )}
 
             {/* DMs View */}
-            {activeTab === 'dms' && <SecretDMs />}
+            {activeTab === 'dms' && <SecretDMs currentUsername={userProfile.username} />}
 
             {/* Spotted Wall View */}
             {activeTab === 'wall' && (
@@ -570,20 +587,19 @@ export default function App() {
                 <SpottedWall
                   confessions={confessions}
                   onAddConfession={(text, tag, isAnon) => {
-                    setConfessions((prev) => [
-                      {
-                        id: 'c_' + Date.now(),
-                        tag,
-                        text,
-                        author: isAnon ? 'Anonymous' : userProfile.username,
-                        avatarSeed: isAnon ? 'anon' : userProfile.avatarSeed,
-                        createdAt: Date.now(),
-                        expiresInHours: 8,
-                        upvotes: 1,
-                        downvotes: 0,
-                      },
-                      ...prev,
-                    ]);
+                    const newConfession = {
+                      id: 'c_' + Date.now() + '_' + Math.random().toString(36).substring(2,6),
+                      tag,
+                      text,
+                      author: isAnon ? 'Anonymous' : userProfile.username,
+                      avatarSeed: isAnon ? 'anon' : userProfile.avatarSeed,
+                      createdAt: Date.now(),
+                      expiresInHours: 8,
+                      upvotes: 1,
+                      downvotes: 0,
+                    };
+                    setConfessions((prev) => [newConfession, ...prev]);
+                    p2pNetwork.broadcastConfession(newConfession);
                   }}
                   onVote={(id, type) => {
                     setConfessions((prev) =>
@@ -599,6 +615,7 @@ export default function App() {
                         )
                         .filter((c) => c.downvotes < 5)
                     );
+                    p2pNetwork.broadcastConfessionVote(id, type);
                   }}
                 />
               </div>

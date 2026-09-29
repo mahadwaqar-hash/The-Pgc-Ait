@@ -9,7 +9,9 @@ export type NetworkEventType =
   | { type: 'SYNC_HISTORY'; messages: ChatMessage[] }
   | { type: 'PEER_JOINED'; username: string; peerId: string }
   | { type: 'DIRECT_MESSAGE'; id: string; sender: string; recipient: string; content: string; time: string }
-  | { type: 'MOD_ACTION'; action: 'BAN' | 'KICK' | 'MUTE'; targetUsername: string; reason?: string };
+  | { type: 'MOD_ACTION'; action: 'BAN' | 'KICK' | 'MUTE'; targetUsername: string; reason?: string }
+  | { type: 'CONFESSION'; confession: any }
+  | { type: 'CONFESSION_VOTE'; confessionId: string; voteType: 'up' | 'down' };
 
 export const ADMINS = {
   SUPREME: { username: 'alpha_prime', pin: '9999' },
@@ -38,6 +40,8 @@ class P2PNetwork {
   private onDirectMessageCallbacks: ((msg: any) => void)[] = [];
   private onModActionCallbacks: ((action: string, target: string, reason?: string) => void)[] = [];
   private onPeerListUpdateCallbacks: ((peers: {peerId: string, username: string}[]) => void)[] = [];
+  private onConfessionCallbacks: ((confession: any) => void)[] = [];
+  private onConfessionVoteCallbacks: ((id: string, type: 'up' | 'down') => void)[] = [];
   
   private currentUsername: string = '';
   private currentRoom: string = 'Lounge';
@@ -134,6 +138,10 @@ class P2PNetwork {
         }
       } else if (event.type === 'MOD_ACTION') {
         this.onModActionCallbacks.forEach(cb => cb(event.action, event.targetUsername, event.reason));
+      } else if (event.type === 'CONFESSION') {
+        this.onConfessionCallbacks.forEach(cb => cb(event.confession));
+      } else if (event.type === 'CONFESSION_VOTE') {
+        this.onConfessionVoteCallbacks.forEach(cb => cb(event.confessionId, event.voteType));
       }
     });
 
@@ -207,6 +215,16 @@ class P2PNetwork {
     this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
   }
 
+  public broadcastConfession(confession: any) {
+    const payload: NetworkEventType = { type: 'CONFESSION', confession };
+    this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
+  }
+
+  public broadcastConfessionVote(confessionId: string, voteType: 'up' | 'down') {
+    const payload: NetworkEventType = { type: 'CONFESSION_VOTE', confessionId, voteType };
+    this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
+  }
+
   public onNewMessage(callback: (msg: ChatMessage) => void) { this.onMessageCallbacks.push(callback); }
   public onReaction(callback: (msgId: string, emoji: string) => void) { this.onReactionCallbacks.push(callback); }
   public onVaporize(callback: (msgId: string) => void) { this.onVaporizeCallbacks.push(callback); }
@@ -215,6 +233,8 @@ class P2PNetwork {
   public onDirectMessage(callback: (msg: any) => void) { this.onDirectMessageCallbacks.push(callback); }
   public onModAction(callback: (action: string, target: string, reason?: string) => void) { this.onModActionCallbacks.push(callback); }
   public onPeerListUpdate(callback: (peers: {peerId: string, username: string}[]) => void) { this.onPeerListUpdateCallbacks.push(callback); }
+  public onConfession(callback: (confession: any) => void) { this.onConfessionCallbacks.push(callback); }
+  public onConfessionVote(callback: (id: string, type: 'up' | 'down') => void) { this.onConfessionVoteCallbacks.push(callback); }
 
   public destroy() {
     if (this.peer) {

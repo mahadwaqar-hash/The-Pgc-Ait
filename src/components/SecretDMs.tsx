@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, UserPlus, Lock } from 'lucide-react';
 import MagneticButton from './MagneticButton';
+import { p2pNetwork } from '../utils/p2pNetwork';
 
 interface DirectMessage {
   id: string;
@@ -10,43 +11,71 @@ interface DirectMessage {
   time: string;
 }
 
-export default function SecretDMs() {
-  const [contacts, setContacts] = useState<string[]>(['bilal_ait', 'sarah_premed', 'hamza_cs']);
-  const [selectedPeer, setSelectedPeer] = useState<string>('bilal_ait');
+interface SecretDMsProps {
+  currentUsername: string;
+}
+
+export default function SecretDMs({ currentUsername }: SecretDMsProps) {
+  const [contacts, setContacts] = useState<string[]>([]);
+  const [selectedPeer, setSelectedPeer] = useState<string>('');
   const [inputText, setInputText] = useState('');
   const [newPeerInput, setNewPeerInput] = useState('');
   const [showAddPeer, setShowAddPeer] = useState(false);
 
-  const [dmHistory, setDmHistory] = useState<Record<string, DirectMessage[]>>({
-    bilal_ait: [
-      { id: '1', sender: 'bilal_ait', content: 'Are you in the lab right now?', time: '12:45' },
-      { id: '2', sender: 'Me', content: 'Heading there after physics class.', time: '12:48' },
-    ],
-    sarah_premed: [
-      { id: '3', sender: 'sarah_premed', content: 'Did sir announce the test schedule?', time: '11:15' },
-    ],
-    hamza_cs: [
-      { id: '4', sender: 'hamza_cs', content: 'Check the new past papers link.', time: '10:02' },
-    ],
-  });
+  const [dmHistory, setDmHistory] = useState<Record<string, DirectMessage[]>>({});
+
+  useEffect(() => {
+    // Listen for incoming DMs
+    p2pNetwork.onDirectMessage((msg) => {
+      // msg.sender, msg.recipient, msg.content, msg.time
+      const isFromMe = msg.sender === currentUsername;
+      const otherUser = isFromMe ? msg.recipient : msg.sender;
+      
+      // If we are not involved, ignore (handled in p2pNetwork already, but just to be safe)
+      if (msg.recipient !== currentUsername && msg.sender !== currentUsername) return;
+
+      setContacts((prev) => (prev.includes(otherUser) ? prev : [...prev, otherUser]));
+      
+      const newMsg: DirectMessage = {
+        id: msg.id,
+        sender: isFromMe ? 'Me' : msg.sender,
+        content: msg.content,
+        time: msg.time,
+      };
+
+      setDmHistory((prev) => {
+        const history = prev[otherUser] || [];
+        if (history.some((m) => m.id === newMsg.id)) return prev;
+        return { ...prev, [otherUser]: [...history, newMsg] };
+      });
+    });
+  }, [currentUsername]);
 
   const currentMessages = dmHistory[selectedPeer] || [];
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || !selectedPeer) return;
 
+    const id = 'dm_' + Date.now() + '_' + Math.random().toString(36).substring(2,6);
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    // Broadcast DM
+    p2pNetwork.sendDirectMessage(id, selectedPeer, inputText.trim(), time);
+    
+    // Local state is updated via the p2pNetwork.onDirectMessage callback which fires for our own messages?
+    // Wait, p2pNetwork.sendDirectMessage does NOT fire local callbacks. We must update local state:
     const newMsg: DirectMessage = {
-      id: 'dm_' + Date.now(),
+      id,
       sender: 'Me',
       content: inputText.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time,
     };
-
     setDmHistory((prev) => ({
       ...prev,
       [selectedPeer]: [...(prev[selectedPeer] || []), newMsg],
     }));
+
     setInputText('');
   };
 
