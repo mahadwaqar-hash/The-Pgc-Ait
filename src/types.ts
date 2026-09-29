@@ -7,7 +7,7 @@ export interface ChatMessage {
   createdAt: number;
   durationMs: number;
   isBurnOnRead?: boolean;
-  reactions: { [emoji: string]: number };
+  reactions: { [emoji: string]: string[] }; // array of usernames who reacted
 }
 
 export interface Confession {

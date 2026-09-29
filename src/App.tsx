@@ -142,13 +142,24 @@ export default function App() {
         });
       });
 
-      p2pNetwork.onReaction((msgId, emoji) => {
+      p2pNetwork.onReaction((msgId, emoji, username) => {
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === msgId
-              ? { ...m, reactions: { ...m.reactions, [emoji]: (m.reactions[emoji] || 0) + 1 } }
-              : m
-          )
+          prev.map((m) => {
+            if (m.id === msgId) {
+              const currentReacts = Array.isArray(m.reactions[emoji]) ? m.reactions[emoji] : [];
+              const hasReacted = currentReacts.includes(username);
+              return {
+                ...m,
+                reactions: {
+                  ...m.reactions,
+                  [emoji]: hasReacted
+                    ? currentReacts.filter((u: string) => u !== username)
+                    : [...currentReacts, username],
+                },
+              };
+            }
+            return m;
+          })
         );
       });
 
@@ -257,11 +268,22 @@ export default function App() {
 
   const handleReact = (id: string, emoji: string) => {
     setMessages((prev) =>
-      prev.map((m) =>
-        m.id === id
-          ? { ...m, reactions: { ...m.reactions, [emoji]: (m.reactions[emoji] || 0) + 1 } }
-          : m
-      )
+      prev.map((m) => {
+        if (m.id === id) {
+          const currentReacts = Array.isArray(m.reactions[emoji]) ? m.reactions[emoji] : [];
+          const hasReacted = currentReacts.includes(userProfile.username);
+          return {
+            ...m,
+            reactions: {
+              ...m.reactions,
+              [emoji]: hasReacted
+                ? currentReacts.filter((u: string) => u !== userProfile.username)
+                : [...currentReacts, userProfile.username],
+            },
+          };
+        }
+        return m;
+      })
     );
     p2pNetwork.broadcastReaction(id, emoji);
   };
@@ -493,6 +515,7 @@ export default function App() {
                           key={msg.id}
                           message={msg}
                           isCurrentUser={msg.sender === userProfile.username}
+                          currentUsername={userProfile.username}
                           onVaporize={handleVaporize}
                           onReact={handleReact}
                         />
@@ -572,6 +595,7 @@ export default function App() {
                               key={msg.id}
                               message={msg}
                               isCurrentUser={msg.sender === userProfile.username}
+                              currentUsername={userProfile.username}
                               onVaporize={handleVaporize}
                               onReact={handleReact}
                             />

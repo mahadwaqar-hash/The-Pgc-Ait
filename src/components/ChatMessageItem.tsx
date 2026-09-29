@@ -8,6 +8,7 @@ interface ChatMessageItemProps {
   isCurrentUser?: boolean;
   onVaporize: (id: string) => void;
   onReact: (id: string, emoji: string) => void;
+  currentUsername?: string;
 }
 
 export default function ChatMessageItem({
@@ -15,6 +16,7 @@ export default function ChatMessageItem({
   isCurrentUser = false,
   onVaporize,
   onReact,
+  currentUsername,
 }: ChatMessageItemProps) {
   const [isRevealed, setIsRevealed] = useState(false);
   const [isVaporizing, setIsVaporizing] = useState(false);
@@ -114,7 +116,10 @@ export default function ChatMessageItem({
             }`}
           >
             {['🖤', '✨', '☕', '🔥', '💀'].map((emoji) => {
-              const count = message.reactions[emoji] || 0;
+              const reactors = Array.isArray(message.reactions[emoji]) ? message.reactions[emoji] : [];
+              const count = reactors.length;
+              const hasReacted = currentUsername ? reactors.includes(currentUsername) : false;
+              
               return (
                 <motion.button
                   key={emoji}
@@ -122,13 +127,15 @@ export default function ChatMessageItem({
                   onClick={() => onReact(message.id, emoji)}
                   className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 transition-all duration-150 ${
                     count > 0
-                      ? 'bg-[var(--app-surface-secondary)] text-[var(--app-text)] border border-[var(--app-border-hover)] scale-105 shadow-sm'
+                      ? hasReacted 
+                        ? 'bg-[var(--app-button-bg)] text-[var(--app-button-text)] border border-transparent scale-105 shadow-sm'
+                        : 'bg-[var(--app-surface-secondary)] text-[var(--app-text)] border border-[var(--app-border-hover)] scale-105 shadow-sm'
                       : 'hidden group-hover:flex text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-surface-secondary)] opacity-40 hover:opacity-100'
                   }`}
                 >
                   <span>{emoji}</span>
                   {count > 0 && (
-                    <span className="font-mono text-[10px] font-bold">{count}</span>
+                    <span className={`font-mono text-[10px] font-bold ${hasReacted ? 'text-[var(--app-button-text)]' : ''}`}>{count}</span>
                   )}
                 </motion.button>
               );
