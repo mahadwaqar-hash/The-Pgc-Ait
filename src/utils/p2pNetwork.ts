@@ -1,10 +1,5 @@
+import { io, Socket } from 'socket.io-client';
 import type { ChatMessage } from '../types';
-
-declare global {
-  interface Window {
-    mqtt: any;
-  }
-}
 
 export type NetworkEventType = { _eventId?: string } & (
   | { type: 'NEW_MESSAGE'; message: ChatMessage }
@@ -33,10 +28,8 @@ export const verifyAdmin = (username: string, pin: string) => {
   return admin.pin === pin;
 };
 
-const TOPIC = 'pgc-ait-global-mesh-v5';
-
 class P2PNetwork {
-  private client: any = null;
+  private socket: Socket | null = null;
   private myPeerId: string = Math.random().toString(36).substring(2, 10);
   
   private onMessageCallbacks: ((msg: ChatMessage) => void)[] = [];
@@ -60,30 +53,24 @@ class P2PNetwork {
     this.currentUsername = username;
     this.getLatestMessages = getMessages;
 
-    if (this.client) {
-      this.client.end(true);
+    if (this.socket) {
+      this.socket.disconnect();
     }
 
     try {
-      // Connect to HiveMQ Public WebSocket Broker (100% reliable, bypasses NAT, no backend)
-      this.client = window.mqtt.connect('wss://broker.hivemq.com:8443/mqtt', {
-        clientId: `pgc-ait-${this.myPeerId}`,
-        clean: true,
-        reconnectPeriod: 1000,
-      });
+      const url = import.meta.env.PROD ? window.location.origin : 'http://localhost:3001';
+      this.socket = io(url);
 
-      this.client.on('connect', () => {
-        if (this.client) {
-          this.client.subscribe(TOPIC, { qos: 0 });
+      this.socket.on('connect', () => {
+        if (this.socket) {
           this.broadcast({ type: 'PEER_JOINED', username: this.currentUsername, peerId: this.myPeerId });
           this.broadcast({ type: 'REQUEST_HISTORY' });
         }
       });
 
-      this.client.on('message', (topic: string, message: any) => {
-        if (topic !== TOPIC) return;
+      this.socket.on('chat-message', (payload: NetworkEventType) => {
         try {
-          const event = JSON.parse(message.toString()) as NetworkEventType;
+          const event = payload;
           
           if (event._eventId) {
             if (this.seenEventIds.has(event._eventId)) return;
@@ -102,7 +89,6 @@ class P2PNetwork {
           } else if (event.type === 'REQUEST_HISTORY') {
             const msgs = this.getLatestMessages();
             if (msgs.length > 0) {
-              // Wait a random delay. If someone else syncs first, we cancel ours.
               if (this.syncTimeout) clearTimeout(this.syncTimeout);
               this.syncTimeout = setTimeout(() => {
                 this.broadcast({ type: 'SYNC_HISTORY', messages: msgs });
@@ -152,12 +138,13 @@ class P2PNetwork {
   }
 
   private broadcast(payload: NetworkEventType) {
-    if (!this.client || !this.client.connected) return;
+    if (!this.socket || !this.socket.connected) return;
     if (!payload._eventId) {
       payload._eventId = Math.random().toString(36).substring(2) + Date.now().toString(36);
     }
     this.seenEventIds.add(payload._eventId);
-    this.client.publish(TOPIC, JSON.stringify(payload), { qos: 0 });
+    // Emit it locally via socket so it goes to server and gets broadcasted
+    this.socket.emit('chat-message', payload);
   }
 
   public broadcastMessage(message: ChatMessage) {
@@ -201,9 +188,9 @@ class P2PNetwork {
   public onPeerListUpdate(callback: (peers: {peerId: string, username: string}[]) => void) { this.onPeerListUpdateCallbacks.push(callback); }
 
   public destroy() {
-    if (this.client) {
-      this.client.end(true);
-      this.client = null;
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
     this.peerUsernames.clear();
   }
