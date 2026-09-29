@@ -27,7 +27,9 @@ export default function App() {
   const [isPanicActive, setIsPanicActive] = useState<boolean>(false);
   const [isIdentityModalOpen, setIsIdentityModalOpen] = useState<boolean>(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState<boolean>(false);
-  const [activeTheme, setActiveTheme] = useState<'obsidian' | 'alabaster' | 'nordic' | 'lively'>('obsidian');
+  const [activeTheme, setActiveTheme] = useState<string>(() => {
+    return localStorage.getItem('pgc_theme') || 'obsidian';
+  });
   const [peerCount, setPeerCount] = useState<number>(1);
 
   // Identity state
@@ -94,6 +96,7 @@ export default function App() {
   // Sync theme attribute to document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', activeTheme);
+    localStorage.setItem('pgc_theme', activeTheme);
   }, [activeTheme]);
 
   // Prompt identity modal if user has no account on first launch
@@ -313,21 +316,29 @@ export default function App() {
           {/* Controls: Themes, Audio, Panic, Identity */}
           <div className="flex items-center gap-3 md:gap-5">
             {/* Theme Switcher */}
-            <div className="flex items-center gap-1 p-1 rounded-lg bg-[var(--app-surface)] border border-[var(--app-border)]">
-              <Palette className="w-3.5 h-3.5 text-[var(--app-text-muted)] ml-1 mr-0.5" />
-              {(['obsidian', 'alabaster', 'nordic', 'lively'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setActiveTheme(t)}
-                  className={`px-2 py-1 rounded text-[10px] font-mono tracking-wider uppercase transition-colors ${
-                    activeTheme === t
-                      ? 'bg-[var(--app-button-bg)] text-[var(--app-button-text)] font-semibold shadow-sm'
-                      : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
-                  }`}
-                >
-                  {t === 'obsidian' ? 'Obsidian' : t === 'alabaster' ? 'Alabaster' : t === 'nordic' ? 'Nordic' : 'Lively'}
-                </button>
-              ))}
+            <div className="flex items-center gap-2 p-1.5 px-3 rounded-lg bg-[var(--app-surface)] border border-[var(--app-border)]">
+              <Palette className="w-3.5 h-3.5 text-[var(--app-text-muted)]" />
+              <select
+                value={activeTheme}
+                onChange={(e) => setActiveTheme(e.target.value)}
+                className="bg-transparent text-xs font-mono uppercase tracking-wider text-[var(--app-text)] outline-none cursor-pointer border-none"
+              >
+                <option value="obsidian">Obsidian</option>
+                <option value="alabaster">Alabaster</option>
+                <option value="nordic">Nordic</option>
+                <option value="lively">Lively</option>
+                <option value="cyberpunk">Cyberpunk</option>
+                <option value="midnight">Midnight</option>
+                <option value="forest">Forest</option>
+                <option value="ocean">Ocean</option>
+                <option value="cherry">Cherry</option>
+                <option value="dracula">Dracula</option>
+                <option value="monokai">Monokai</option>
+                <option value="solarized-dark">Sol Dark</option>
+                <option value="solarized-light">Sol Light</option>
+                <option value="matcha">Matcha</option>
+                <option value="lavender">Lavender</option>
+              </select>
             </div>
 
             {/* Audio Toggle */}
@@ -359,9 +370,9 @@ export default function App() {
               <span className="font-body text-xs tracking-wider uppercase text-[var(--app-text)] font-medium">
                 {userProfile.username}
               </span>
-              <div className="w-7 h-7 rounded-full overflow-hidden bg-[var(--app-surface-secondary)] border border-[var(--app-border)]">
+              <div className="w-7 h-7 rounded-full overflow-hidden bg-[var(--app-surface-secondary)] border border-[var(--app-border)] flex-shrink-0">
                 <img
-                  src={`https://api.dicebear.com/7.x/notionists/svg?seed=${userProfile.avatarSeed}&backgroundColor=transparent`}
+                  src={`https://api.dicebear.com/7.x/${userProfile.avatarSeed?.includes(':') ? userProfile.avatarSeed.split(':')[0] : 'notionists'}/svg?seed=${userProfile.avatarSeed?.includes(':') ? userProfile.avatarSeed.split(':')[1] : userProfile.avatarSeed}&backgroundColor=transparent`}
                   alt="avatar"
                   className="w-full h-full object-cover"
                 />

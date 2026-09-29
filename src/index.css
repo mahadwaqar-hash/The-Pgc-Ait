@@ -76,6 +76,160 @@
   --app-button-text: #ffffff;
 }
 
+/* Theme 5: Cyberpunk Neon */
+[data-theme="cyberpunk"] {
+  --app-bg: #0f0f16;
+  --app-surface: #171721;
+  --app-surface-secondary: #222230;
+  --app-border: #fce205;
+  --app-border-hover: #ff00ff;
+  --app-text: #00ffff;
+  --app-text-muted: #a3a3c2;
+  --app-accent: #ff00ff;
+  --app-button-bg: #fce205;
+  --app-button-text: #000000;
+}
+
+/* Theme 6: Midnight Blue */
+[data-theme="midnight"] {
+  --app-bg: #060913;
+  --app-surface: #0a0f1f;
+  --app-surface-secondary: #10162a;
+  --app-border: #1a233a;
+  --app-border-hover: #2a3756;
+  --app-text: #e2e8f0;
+  --app-text-muted: #64748b;
+  --app-accent: #38bdf8;
+  --app-button-bg: #38bdf8;
+  --app-button-text: #020617;
+}
+
+/* Theme 7: Deep Forest */
+[data-theme="forest"] {
+  --app-bg: #08100a;
+  --app-surface: #0c1810;
+  --app-surface-secondary: #14281a;
+  --app-border: #1e3a27;
+  --app-border-hover: #2b5438;
+  --app-text: #dcfce7;
+  --app-text-muted: #86efac;
+  --app-accent: #4ade80;
+  --app-button-bg: #4ade80;
+  --app-button-text: #052e16;
+}
+
+/* Theme 8: Ocean Depth */
+[data-theme="ocean"] {
+  --app-bg: #04121a;
+  --app-surface: #071f2c;
+  --app-surface-secondary: #0b2f42;
+  --app-border: #114663;
+  --app-border-hover: #19618a;
+  --app-text: #e0f2fe;
+  --app-text-muted: #7dd3fc;
+  --app-accent: #0ea5e9;
+  --app-button-bg: #0284c7;
+  --app-button-text: #ffffff;
+}
+
+/* Theme 9: Velvet Cherry */
+[data-theme="cherry"] {
+  --app-bg: #1a050f;
+  --app-surface: #2b0b1a;
+  --app-surface-secondary: #3d1026;
+  --app-border: #591b3a;
+  --app-border-hover: #7c2651;
+  --app-text: #fce7f3;
+  --app-text-muted: #f472b6;
+  --app-accent: #ec4899;
+  --app-button-bg: #be185d;
+  --app-button-text: #ffffff;
+}
+
+/* Theme 10: Dracula */
+[data-theme="dracula"] {
+  --app-bg: #282a36;
+  --app-surface: #44475a;
+  --app-surface-secondary: #6272a4;
+  --app-border: #ff79c6;
+  --app-border-hover: #bd93f9;
+  --app-text: #f8f8f2;
+  --app-text-muted: #8be9fd;
+  --app-accent: #ffb86c;
+  --app-button-bg: #50fa7b;
+  --app-button-text: #282a36;
+}
+
+/* Theme 11: Monokai Pro */
+[data-theme="monokai"] {
+  --app-bg: #2d2a2e;
+  --app-surface: #403e41;
+  --app-surface-secondary: #5b595c;
+  --app-border: #727072;
+  --app-border-hover: #ab9df2;
+  --app-text: #fcfcfa;
+  --app-text-muted: #939293;
+  --app-accent: #ffd866;
+  --app-button-bg: #a9dc76;
+  --app-button-text: #2d2a2e;
+}
+
+/* Theme 12: Solarized Dark */
+[data-theme="solarized-dark"] {
+  --app-bg: #002b36;
+  --app-surface: #073642;
+  --app-surface-secondary: #586e75;
+  --app-border: #657b83;
+  --app-border-hover: #839496;
+  --app-text: #839496;
+  --app-text-muted: #93a1a1;
+  --app-accent: #b58900;
+  --app-button-bg: #cb4b16;
+  --app-button-text: #fdf6e3;
+}
+
+/* Theme 13: Solarized Light */
+[data-theme="solarized-light"] {
+  --app-bg: #fdf6e3;
+  --app-surface: #eee8d5;
+  --app-surface-secondary: #93a1a1;
+  --app-border: #839496;
+  --app-border-hover: #657b83;
+  --app-text: #657b83;
+  --app-text-muted: #586e75;
+  --app-accent: #2aa198;
+  --app-button-bg: #268bd2;
+  --app-button-text: #fdf6e3;
+}
+
+/* Theme 14: Matcha Green */
+[data-theme="matcha"] {
+  --app-bg: #f2f7ec;
+  --app-surface: #e4eedb;
+  --app-surface-secondary: #d1e2c4;
+  --app-border: #b5cea3;
+  --app-border-hover: #8eaf78;
+  --app-text: #2c4021;
+  --app-text-muted: #537540;
+  --app-accent: #7a9c59;
+  --app-button-bg: #4a6b33;
+  --app-button-text: #f2f7ec;
+}
+
+/* Theme 15: Lavender Dream */
+[data-theme="lavender"] {
+  --app-bg: #f5f3fa;
+  --app-surface: #e9e5f2;
+  --app-surface-secondary: #d8cce8;
+  --app-border: #c3b2d9;
+  --app-border-hover: #9c83c2;
+  --app-text: #2f2142;
+  --app-text-muted: #5a4575;
+  --app-accent: #8b6eb0;
+  --app-button-bg: #63468c;
+  --app-button-text: #f5f3fa;
+}
+
 @layer base {
   * {
     box-sizing: border-box;

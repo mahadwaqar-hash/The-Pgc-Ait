@@ -121,21 +121,37 @@ export default function IdentityModal({
                 <label className="block font-body text-[11px] tracking-widest uppercase text-[var(--app-text-muted)] mb-2">
                   Visual Identity
                 </label>
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full overflow-hidden border border-[var(--app-border)] bg-[var(--app-surface-secondary)]">
-                    <img
-                      src={`https://api.dicebear.com/7.x/notionists/svg?seed=${avatarSeed}&backgroundColor=transparent`}
-                      alt="avatar preview"
-                      className="w-full h-full object-cover"
-                    />
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-full overflow-hidden border border-[var(--app-border)] bg-[var(--app-surface-secondary)]">
+                      <img
+                        src={`https://api.dicebear.com/7.x/${avatarSeed.split(':')[0] || 'notionists'}/svg?seed=${avatarSeed.split(':')[1] || avatarSeed}&backgroundColor=transparent`}
+                        alt="avatar preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2 flex-1">
+                      <select 
+                        className="luxury-input px-3 py-1.5 text-xs font-body w-full"
+                        value={avatarSeed.split(':')[0] || 'notionists'}
+                        onChange={(e) => setAvatarSeed(`${e.target.value}:${avatarSeed.split(':')[1] || avatarSeed}`)}
+                      >
+                        <option value="notionists">Notionists</option>
+                        <option value="bottts">Bottts</option>
+                        <option value="micah">Micah</option>
+                        <option value="adventurer">Adventurer</option>
+                        <option value="lorelei">Lorelei</option>
+                        <option value="fun-emoji">Fun Emoji</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setAvatarSeed(`${avatarSeed.split(':')[0] || 'notionists'}:${Math.random().toString(36).substring(7)}`)}
+                        className="font-body text-xs tracking-widest uppercase text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition-colors px-3 py-1.5 rounded border border-[var(--app-border)] hover:border-[var(--app-border-hover)] w-full text-center"
+                      >
+                        Shuffle Seed
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setAvatarSeed(Math.random().toString(36).substring(7))}
-                    className="font-body text-xs tracking-widest uppercase text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition-colors px-3 py-1.5 rounded border border-[var(--app-border)] hover:border-[var(--app-border-hover)]"
-                  >
-                    Shuffle Avatar
-                  </button>
                 </div>
               </div>
 

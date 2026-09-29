@@ -26,6 +26,10 @@ export default function ChatInputBar({ onSendMessage, activeRoom }: ChatInputBar
     setText('');
     setIsBurnOnRead(false);
     setShowEmojiPicker(false);
+    // Timeout helps iOS Safari keep focus after DOM updates
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 10);
   };
 
   const handleEmojiSelect = (emoji: string) => {

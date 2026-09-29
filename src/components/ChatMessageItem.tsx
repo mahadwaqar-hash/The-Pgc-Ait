@@ -48,9 +48,9 @@ export default function ChatMessageItem({
               isCurrentUser ? 'flex-row-reverse' : 'flex-row'
             }`}
           >
-            <div className="w-5 h-5 rounded-full overflow-hidden border border-[var(--app-border)] bg-[var(--app-surface-secondary)]">
+            <div className="w-5 h-5 rounded-full overflow-hidden border border-[var(--app-border)] bg-[var(--app-surface-secondary)] flex-shrink-0">
               <img
-                src={`https://api.dicebear.com/7.x/notionists/svg?seed=${message.avatarSeed}&backgroundColor=transparent`}
+                src={`https://api.dicebear.com/7.x/${message.avatarSeed?.includes(':') ? message.avatarSeed.split(':')[0] : 'notionists'}/svg?seed=${message.avatarSeed?.includes(':') ? message.avatarSeed.split(':')[1] : message.avatarSeed}&backgroundColor=transparent`}
                 alt="avatar"
                 className="w-full h-full object-cover"
               />
