@@ -1,6 +1,18 @@
-// @ts-ignore
-import { joinRoom } from 'trystero';
+import mqtt from 'mqtt';
 import type { ChatMessage } from '../types';
+
+export type NetworkEventType = { _eventId?: string } & (
+  | { type: 'NEW_MESSAGE'; message: ChatMessage }
+  | { type: 'REACTION'; messageId: string; emoji: string; username: string }
+  | { type: 'VAPORIZE'; messageId: string }
+  | { type: 'REQUEST_HISTORY' }
+  | { type: 'SYNC_HISTORY'; messages: ChatMessage[] }
+  | { type: 'PEER_JOINED'; username: string; peerId: string }
+  | { type: 'DIRECT_MESSAGE'; id: string; sender: string; recipient: string; content: string; time: string }
+  | { type: 'MOD_ACTION'; action: 'BAN' | 'KICK' | 'MUTE'; targetUsername: string; reason?: string }
+  | { type: 'CONFESSION'; confession: any }
+  | { type: 'CONFESSION_VOTE'; confessionId: string; voteType: 'up' | 'down' }
+);
 
 export const ADMINS = {
   SUPREME: { username: 'alpha_prime', pin: '9999' },
@@ -16,9 +28,11 @@ export const verifyAdmin = (username: string, pin: string) => {
   return admin.pin === pin;
 };
 
+const TOPIC = 'pgc-ait-global-mesh-v5';
+
 class P2PNetwork {
-  private room: any = null;
-  private actions: any = {};
+  private client: mqtt.MqttClient | null = null;
+  private myPeerId: string = Math.random().toString(36).substring(2, 10);
   
   private onMessageCallbacks: ((msg: ChatMessage) => void)[] = [];
   private onReactionCallbacks: ((msgId: string, emoji: string, username: string) => void)[] = [];
@@ -31,83 +45,86 @@ class P2PNetwork {
   private onDirectMessageCallbacks: ((msg: any) => void)[] = [];
   private onPeerListUpdateCallbacks: ((peers: {peerId: string, username: string}[]) => void)[] = [];
   
+  private seenEventIds: Set<string> = new Set();
   private currentUsername: string = '';
   private getLatestMessages: () => ChatMessage[] = () => [];
-  private peerCount = 1;
   private peerUsernames: Map<string, string> = new Map();
+  private syncTimeout: any = null;
 
   public init(username: string, getMessages: () => ChatMessage[]) {
     this.currentUsername = username;
     this.getLatestMessages = getMessages;
 
-    if (this.room) {
-      this.room.leave();
+    if (this.client) {
+      this.client.end(true);
     }
 
     try {
-      this.room = joinRoom({ appId: 'pgc-ait-mesh-v4' }, 'global-lounge');
+      // Connect to HiveMQ Public WebSocket Broker (100% reliable, bypasses NAT, no backend)
+      this.client = mqtt.connect('wss://broker.hivemq.com:8443/mqtt', {
+        clientId: `pgc-ait-${this.myPeerId}`,
+        clean: true,
+        reconnectPeriod: 1000,
+      });
 
-      this.room.onPeerJoin((peerId: string) => {
-        this.peerCount++;
-        this.notifyPeerCount();
-        const msgs = this.getLatestMessages();
-        if (msgs.length > 0) {
-          this.actions.syncHistory(msgs, peerId);
+      this.client.on('connect', () => {
+        if (this.client) {
+          this.client.subscribe(TOPIC, { qos: 0 });
+          this.broadcast({ type: 'PEER_JOINED', username: this.currentUsername, peerId: this.myPeerId });
+          this.broadcast({ type: 'REQUEST_HISTORY' });
         }
-        // Tell them our username
-        if (this.actions.sendJoin) this.actions.sendJoin(this.currentUsername, peerId);
       });
 
-      this.room.onPeerLeave((peerId: string) => {
-        this.peerCount = Math.max(1, this.peerCount - 1);
-        this.peerUsernames.delete(peerId);
-        this.notifyPeerCount();
-        this.notifyPeerList();
-      });
+      this.client.on('message', (topic, message) => {
+        if (topic !== TOPIC) return;
+        try {
+          const event = JSON.parse(message.toString()) as NetworkEventType;
+          
+          if (event._eventId) {
+            if (this.seenEventIds.has(event._eventId)) return;
+            this.seenEventIds.add(event._eventId);
+          }
 
-      // Actions
-      const [sendJoin, getJoin] = this.room.makeAction('join');
-      this.actions.sendJoin = sendJoin;
-      getJoin((uname: string, peerId: string) => {
-        this.peerUsernames.set(peerId, uname);
-        this.notifyPeerList();
-        // Reply with our username if they just joined
-        sendJoin(this.currentUsername, peerId);
-      });
-
-      const [sendMsg, getMsg] = this.room.makeAction('chat');
-      this.actions.sendMsg = sendMsg;
-      getMsg((msg: ChatMessage) => this.onMessageCallbacks.forEach(cb => cb(msg)));
-
-      const [sendReact, getReact] = this.room.makeAction('react');
-      this.actions.sendReact = sendReact;
-      getReact((data: any) => this.onReactionCallbacks.forEach(cb => cb(data.messageId, data.emoji, data.username)));
-
-      const [sendVaporize, getVaporize] = this.room.makeAction('vaporize');
-      this.actions.sendVaporize = sendVaporize;
-      getVaporize((id: string) => this.onVaporizeCallbacks.forEach(cb => cb(id)));
-
-      const [syncHistory, getHistory] = this.room.makeAction('history');
-      this.actions.syncHistory = syncHistory;
-      getHistory((msgs: ChatMessage[]) => this.onHistorySyncCallbacks.forEach(cb => cb(msgs)));
-
-      const [sendConfession, getConfession] = this.room.makeAction('confession');
-      this.actions.sendConfession = sendConfession;
-      getConfession((confession: any) => this.onConfessionCallbacks.forEach(cb => cb(confession)));
-
-      const [sendConfessionVote, getConfessionVote] = this.room.makeAction('confessionVote');
-      this.actions.sendConfessionVote = sendConfessionVote;
-      getConfessionVote((data: any) => this.onConfessionVoteCallbacks.forEach(cb => cb(data.id, data.type)));
-
-      const [sendMod, getMod] = this.room.makeAction('mod');
-      this.actions.sendMod = sendMod;
-      getMod((data: any) => this.onModActionCallbacks.forEach(cb => cb(data.action, data.targetUsername, data.reason)));
-
-      const [sendDM, getDM] = this.room.makeAction('dm');
-      this.actions.sendDM = sendDM;
-      getDM((data: any) => {
-        if (data.recipient === this.currentUsername || data.sender === this.currentUsername || isSupremeAdmin(this.currentUsername)) {
-           this.onDirectMessageCallbacks.forEach(cb => cb(data));
+          if (event.type === 'PEER_JOINED') {
+            this.peerUsernames.set(event.peerId, event.username);
+            this.notifyPeerCount();
+            this.notifyPeerList();
+            
+            // If someone new joins, tell them our username so they know we exist
+            if (event.peerId !== this.myPeerId) {
+              this.broadcast({ type: 'PEER_JOINED', username: this.currentUsername, peerId: this.myPeerId });
+            }
+          } else if (event.type === 'REQUEST_HISTORY') {
+            const msgs = this.getLatestMessages();
+            if (msgs.length > 0) {
+              // Wait a random delay. If someone else syncs first, we cancel ours.
+              if (this.syncTimeout) clearTimeout(this.syncTimeout);
+              this.syncTimeout = setTimeout(() => {
+                this.broadcast({ type: 'SYNC_HISTORY', messages: msgs });
+              }, Math.random() * 2000);
+            }
+          } else if (event.type === 'SYNC_HISTORY') {
+            if (this.syncTimeout) clearTimeout(this.syncTimeout);
+            this.onHistorySyncCallbacks.forEach(cb => cb(event.messages));
+          } else if (event.type === 'NEW_MESSAGE') {
+            this.onMessageCallbacks.forEach(cb => cb(event.message));
+          } else if (event.type === 'REACTION') {
+            this.onReactionCallbacks.forEach(cb => cb(event.messageId, event.emoji, event.username));
+          } else if (event.type === 'VAPORIZE') {
+            this.onVaporizeCallbacks.forEach(cb => cb(event.messageId));
+          } else if (event.type === 'DIRECT_MESSAGE') {
+            if (event.recipient === this.currentUsername || event.sender === this.currentUsername || isSupremeAdmin(this.currentUsername)) {
+               this.onDirectMessageCallbacks.forEach(cb => cb(event));
+            }
+          } else if (event.type === 'MOD_ACTION') {
+            this.onModActionCallbacks.forEach(cb => cb(event.action, event.targetUsername, event.reason));
+          } else if (event.type === 'CONFESSION') {
+            this.onConfessionCallbacks.forEach(cb => cb(event.confession));
+          } else if (event.type === 'CONFESSION_VOTE') {
+            this.onConfessionVoteCallbacks.forEach(cb => cb(event.confessionId, event.voteType));
+          }
+        } catch (e) {
+          // ignore parsing errors
         }
       });
 
@@ -117,7 +134,7 @@ class P2PNetwork {
   }
 
   private notifyPeerCount() {
-    this.onPeerCountCallbacks.forEach((cb) => cb(this.peerCount));
+    this.onPeerCountCallbacks.forEach((cb) => cb(this.peerUsernames.size || 1));
   }
 
   private notifyPeerList() {
@@ -129,33 +146,42 @@ class P2PNetwork {
     return Array.from(this.peerUsernames.entries()).map(([peerId, username]) => ({ peerId, username }));
   }
 
+  private broadcast(payload: NetworkEventType) {
+    if (!this.client || !this.client.connected) return;
+    if (!payload._eventId) {
+      payload._eventId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    }
+    this.seenEventIds.add(payload._eventId);
+    this.client.publish(TOPIC, JSON.stringify(payload), { qos: 0 });
+  }
+
   public broadcastMessage(message: ChatMessage) {
-    if (this.actions.sendMsg) this.actions.sendMsg(message);
+    this.broadcast({ type: 'NEW_MESSAGE', message });
   }
 
   public broadcastReaction(messageId: string, emoji: string) {
-    if (this.actions.sendReact) this.actions.sendReact({ messageId, emoji, username: this.currentUsername });
+    this.broadcast({ type: 'REACTION', messageId, emoji, username: this.currentUsername });
   }
 
   public broadcastVaporize(messageId: string) {
-    if (this.actions.sendVaporize) this.actions.sendVaporize(messageId);
+    this.broadcast({ type: 'VAPORIZE', messageId });
   }
 
   public sendDirectMessage(id: string, recipient: string, content: string, time: string) {
-    if (this.actions.sendDM) this.actions.sendDM({ id, sender: this.currentUsername, recipient, content, time });
+    this.broadcast({ type: 'DIRECT_MESSAGE', id, sender: this.currentUsername, recipient, content, time });
   }
 
   public sendModAction(action: 'BAN' | 'KICK' | 'MUTE', targetUsername: string, reason?: string) {
     if (!isAdmin(this.currentUsername)) return;
-    if (this.actions.sendMod) this.actions.sendMod({ action, targetUsername, reason });
+    this.broadcast({ type: 'MOD_ACTION', action, targetUsername, reason });
   }
 
   public broadcastConfession(confession: any) {
-    if (this.actions.sendConfession) this.actions.sendConfession(confession);
+    this.broadcast({ type: 'CONFESSION', confession });
   }
 
   public broadcastConfessionVote(confessionId: string, voteType: 'up' | 'down') {
-    if (this.actions.sendConfessionVote) this.actions.sendConfessionVote({ id: confessionId, type: voteType });
+    this.broadcast({ type: 'CONFESSION_VOTE', confessionId, voteType });
   }
 
   public onNewMessage(callback: (msg: ChatMessage) => void) { this.onMessageCallbacks.push(callback); }
@@ -170,11 +196,10 @@ class P2PNetwork {
   public onPeerListUpdate(callback: (peers: {peerId: string, username: string}[]) => void) { this.onPeerListUpdateCallbacks.push(callback); }
 
   public destroy() {
-    if (this.room) {
-      this.room.leave();
-      this.room = null;
+    if (this.client) {
+      this.client.end(true);
+      this.client = null;
     }
-    this.peerCount = 1;
     this.peerUsernames.clear();
   }
 }
