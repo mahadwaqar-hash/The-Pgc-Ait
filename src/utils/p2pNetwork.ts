@@ -1,7 +1,7 @@
 import Peer, { type DataConnection } from 'peerjs';
 import type { ChatMessage } from '../types';
 
-export type NetworkEventType = 
+export type NetworkEventType = { _eventId?: string } & (
   | { type: 'NEW_MESSAGE'; message: ChatMessage }
   | { type: 'REACTION'; messageId: string; emoji: string }
   | { type: 'VAPORIZE'; messageId: string }
@@ -11,7 +11,8 @@ export type NetworkEventType =
   | { type: 'DIRECT_MESSAGE'; id: string; sender: string; recipient: string; content: string; time: string }
   | { type: 'MOD_ACTION'; action: 'BAN' | 'KICK' | 'MUTE'; targetUsername: string; reason?: string }
   | { type: 'CONFESSION'; confession: any }
-  | { type: 'CONFESSION_VOTE'; confessionId: string; voteType: 'up' | 'down' };
+  | { type: 'CONFESSION_VOTE'; confessionId: string; voteType: 'up' | 'down' }
+);
 
 export const ADMINS = {
   SUPREME: { username: 'alpha_prime', pin: '9999' },
@@ -42,6 +43,8 @@ class P2PNetwork {
   private onPeerListUpdateCallbacks: ((peers: {peerId: string, username: string}[]) => void)[] = [];
   private onConfessionCallbacks: ((confession: any) => void)[] = [];
   private onConfessionVoteCallbacks: ((id: string, type: 'up' | 'down') => void)[] = [];
+  
+  private seenEventIds: Set<string> = new Set();
   
   private currentUsername: string = '';
   private getLatestMessages: () => ChatMessage[] = () => [];
@@ -115,6 +118,17 @@ class P2PNetwork {
       const event = data as NetworkEventType;
       if (!event || !event.type) return;
 
+      if (event._eventId) {
+        if (this.seenEventIds.has(event._eventId)) return;
+        this.seenEventIds.add(event._eventId);
+        // Relay to other connected peers
+        this.connections.forEach((c, peerId) => {
+          if (peerId !== conn.peer && c.open) {
+            c.send(event);
+          }
+        });
+      }
+
       if (event.type === 'PEER_JOINED') {
         this.peerUsernames.set(event.peerId, event.username);
         this.notifyPeerList();
@@ -187,40 +201,41 @@ class P2PNetwork {
     return Array.from(this.peerUsernames.entries()).map(([peerId, username]) => ({ peerId, username }));
   }
 
-  public broadcastMessage(message: ChatMessage) {
-    const payload: NetworkEventType = { type: 'NEW_MESSAGE', message };
+  private broadcast(payload: NetworkEventType) {
+    if (!payload._eventId) {
+      payload._eventId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    }
+    this.seenEventIds.add(payload._eventId);
     this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
+  }
+
+  public broadcastMessage(message: ChatMessage) {
+    this.broadcast({ type: 'NEW_MESSAGE', message });
   }
 
   public broadcastReaction(messageId: string, emoji: string) {
-    const payload: NetworkEventType = { type: 'REACTION', messageId, emoji };
-    this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
+    this.broadcast({ type: 'REACTION', messageId, emoji });
   }
 
   public broadcastVaporize(messageId: string) {
-    const payload: NetworkEventType = { type: 'VAPORIZE', messageId };
-    this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
+    this.broadcast({ type: 'VAPORIZE', messageId });
   }
   
   public sendDirectMessage(id: string, recipient: string, content: string, time: string) {
-    const payload: NetworkEventType = { type: 'DIRECT_MESSAGE', id, sender: this.currentUsername, recipient, content, time };
-    this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
+    this.broadcast({ type: 'DIRECT_MESSAGE', id, sender: this.currentUsername, recipient, content, time });
   }
 
   public sendModAction(action: 'BAN' | 'KICK' | 'MUTE', targetUsername: string, reason?: string) {
     if (!isAdmin(this.currentUsername)) return;
-    const payload: NetworkEventType = { type: 'MOD_ACTION', action, targetUsername, reason };
-    this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
+    this.broadcast({ type: 'MOD_ACTION', action, targetUsername, reason });
   }
 
   public broadcastConfession(confession: any) {
-    const payload: NetworkEventType = { type: 'CONFESSION', confession };
-    this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
+    this.broadcast({ type: 'CONFESSION', confession });
   }
 
   public broadcastConfessionVote(confessionId: string, voteType: 'up' | 'down') {
-    const payload: NetworkEventType = { type: 'CONFESSION_VOTE', confessionId, voteType };
-    this.connections.forEach((conn) => { if (conn.open) conn.send(payload); });
+    this.broadcast({ type: 'CONFESSION_VOTE', confessionId, voteType });
   }
 
   public onNewMessage(callback: (msg: ChatMessage) => void) { this.onMessageCallbacks.push(callback); }

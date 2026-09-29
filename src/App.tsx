@@ -292,6 +292,8 @@ export default function App() {
         currentUsername={userProfile.username}
         currentAvatar={userProfile.avatarSeed}
         hasExistingAccount={userProfile.hasAccount}
+        activeTheme={activeTheme}
+        setActiveTheme={setActiveTheme}
       />
 
       <div className="min-h-screen flex flex-col relative z-10 px-4 md:px-10 py-6 max-w-[1550px] mx-auto transition-colors duration-300">
@@ -316,29 +318,31 @@ export default function App() {
           {/* Controls: Themes, Audio, Panic, Identity */}
           <div className="flex items-center gap-3 md:gap-5">
             {/* Theme Switcher */}
-            <div className="flex items-center gap-2 p-1.5 px-3 rounded-lg bg-[var(--app-surface)] border border-[var(--app-border)]">
-              <Palette className="w-3.5 h-3.5 text-[var(--app-text-muted)]" />
-              <select
-                value={activeTheme}
-                onChange={(e) => setActiveTheme(e.target.value)}
-                className="bg-transparent text-xs font-mono uppercase tracking-wider text-[var(--app-text)] outline-none cursor-pointer border-none"
-              >
-                <option value="obsidian">Obsidian</option>
-                <option value="alabaster">Alabaster</option>
-                <option value="nordic">Nordic</option>
-                <option value="lively">Lively</option>
-                <option value="cyberpunk">Cyberpunk</option>
-                <option value="midnight">Midnight</option>
-                <option value="forest">Forest</option>
-                <option value="ocean">Ocean</option>
-                <option value="cherry">Cherry</option>
-                <option value="dracula">Dracula</option>
-                <option value="monokai">Monokai</option>
-                <option value="solarized-dark">Sol Dark</option>
-                <option value="solarized-light">Sol Light</option>
-                <option value="matcha">Matcha</option>
-                <option value="lavender">Lavender</option>
-              </select>
+            <div className="hidden md:flex items-center gap-1.5 p-1.5 px-2 rounded-full bg-[var(--app-surface)] border border-[var(--app-border)] overflow-x-auto no-scrollbar max-w-[200px]">
+              <Palette className="w-3.5 h-3.5 text-[var(--app-text-muted)] flex-shrink-0" />
+              {[
+                { id: 'obsidian', color: '#09090b', border: '#c5a258' },
+                { id: 'alabaster', color: '#f8f6f1', border: '#927552' },
+                { id: 'nordic', color: '#0d1117', border: '#79c0ff' },
+                { id: 'lively', color: '#312e81', border: '#f43f5e' },
+                { id: 'cyberpunk', color: '#0f0f16', border: '#fce205' },
+                { id: 'midnight', color: '#060913', border: '#38bdf8' },
+                { id: 'forest', color: '#08100a', border: '#4ade80' },
+                { id: 'ocean', color: '#04121a', border: '#0ea5e9' },
+                { id: 'cherry', color: '#1a050f', border: '#ec4899' },
+                { id: 'dracula', color: '#282a36', border: '#ffb86c' },
+                { id: 'monokai', color: '#2d2a2e', border: '#ffd866' },
+                { id: 'matcha', color: '#f2f7ec', border: '#7a9c59' },
+                { id: 'lavender', color: '#f5f3fa', border: '#8b6eb0' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTheme(t.id)}
+                  style={{ backgroundColor: t.color, borderColor: activeTheme === t.id ? t.border : 'var(--app-border)' }}
+                  className={`w-4 h-4 rounded-full border flex-shrink-0 transition-all ${activeTheme === t.id ? 'scale-125 mx-1 shadow-sm' : 'opacity-50 hover:opacity-100 hover:scale-110'}`}
+                  title={t.id}
+                />
+              ))}
             </div>
 
             {/* Audio Toggle */}

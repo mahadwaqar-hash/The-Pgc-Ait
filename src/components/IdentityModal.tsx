@@ -11,6 +11,8 @@ interface IdentityModalProps {
   currentUsername: string;
   currentAvatar: string;
   hasExistingAccount: boolean;
+  activeTheme: string;
+  setActiveTheme: (theme: string) => void;
 }
 
 export default function IdentityModal({
@@ -20,6 +22,8 @@ export default function IdentityModal({
   currentUsername,
   currentAvatar,
   hasExistingAccount,
+  activeTheme,
+  setActiveTheme,
 }: IdentityModalProps) {
   const [username, setUsername] = useState(currentUsername === 'Guest' ? '' : currentUsername);
   const [avatarSeed, setAvatarSeed] = useState(currentAvatar);
@@ -115,6 +119,38 @@ export default function IdentityModal({
                   maxLength={12}
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block font-body text-[11px] tracking-widest uppercase text-[var(--app-text-muted)] mb-2">
+                  App Aesthetics
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'obsidian', color: '#09090b', border: '#c5a258' },
+                    { id: 'alabaster', color: '#f8f6f1', border: '#927552' },
+                    { id: 'nordic', color: '#0d1117', border: '#79c0ff' },
+                    { id: 'lively', color: '#312e81', border: '#f43f5e' },
+                    { id: 'cyberpunk', color: '#0f0f16', border: '#fce205' },
+                    { id: 'midnight', color: '#060913', border: '#38bdf8' },
+                    { id: 'forest', color: '#08100a', border: '#4ade80' },
+                    { id: 'ocean', color: '#04121a', border: '#0ea5e9' },
+                    { id: 'cherry', color: '#1a050f', border: '#ec4899' },
+                    { id: 'dracula', color: '#282a36', border: '#ffb86c' },
+                    { id: 'monokai', color: '#2d2a2e', border: '#ffd866' },
+                    { id: 'matcha', color: '#f2f7ec', border: '#7a9c59' },
+                    { id: 'lavender', color: '#f5f3fa', border: '#8b6eb0' },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setActiveTheme(t.id)}
+                      style={{ backgroundColor: t.color, borderColor: activeTheme === t.id ? t.border : 'var(--app-border)' }}
+                      className={`w-6 h-6 rounded-full border-2 transition-all ${activeTheme === t.id ? 'scale-125 shadow-lg' : 'opacity-60 hover:opacity-100 hover:scale-110'}`}
+                      title={t.id}
+                    />
+                  ))}
+                </div>
               </div>
 
               <div>
