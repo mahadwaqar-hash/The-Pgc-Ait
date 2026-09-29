@@ -130,7 +130,7 @@ export default function App() {
 
   // Initialize P2P Mesh
   useEffect(() => {
-    if (userProfile.username && userProfile.username !== 'Guest') {
+    if (userProfile.username) {
       // Connect everyone to a single global mesh so admins can oversee everything
       p2pNetwork.init(userProfile.username, () => messages);
 

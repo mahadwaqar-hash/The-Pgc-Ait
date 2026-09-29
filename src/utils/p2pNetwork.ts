@@ -1,3 +1,4 @@
+// @ts-ignore
 import mqtt from 'mqtt';
 import type { ChatMessage } from '../types';
 
@@ -75,7 +76,7 @@ class P2PNetwork {
         }
       });
 
-      this.client.on('message', (topic, message) => {
+      this.client.on('message', (topic: string, message: any) => {
         if (topic !== TOPIC) return;
         try {
           const event = JSON.parse(message.toString()) as NetworkEventType;
